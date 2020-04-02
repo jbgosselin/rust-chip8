@@ -29,32 +29,29 @@ pub const SCREEN_WIDTH: usize = 64;
 pub const SCREEN_HEIGHT: usize = 32;
 pub const STACK_SIZE: usize = 24;
 
-struct Cmd(u8, u8, u8, u8);
+struct Cmd {
+    p: u8,
+    x: u8,
+    y: u8,
+    n: u8,
+    nn: u8,
+    nnn: u16,
+}
 
 impl Cmd {
     pub fn new(a: u8, b: u8) -> Cmd {
-        Cmd(a >> 4 & 0xF, a & 0xF, b >> 4 & 0xF, b & 0xF)
+        Cmd {
+            p: a >> 4 & 0xF,
+            x: a & 0xF,
+            y: b >> 4 & 0xF,
+            n: b & 0xF,
+            nn: b,
+            nnn: (b as u16) + (((a & 0xF) as u16) << 8),
+        }
     }
 
-    #[inline(always)]
-    fn x(&self) -> u8 {
-        self.1
-    }
-    #[inline(always)]
-    fn y(&self) -> u8 {
-        self.2
-    }
-    #[inline(always)]
-    fn n(&self) -> u8 {
-        self.3
-    }
-    #[inline(always)]
-    fn nn(&self) -> u8 {
-        self.2 << 4 | self.3
-    }
-    #[inline(always)]
-    fn nnn(&self) -> u16 {
-        (self.1 as u16) << 8 | (self.2 as u16) << 4 | (self.3 as u16)
+    pub fn explode(&self) -> (u8, u8, u8, u8) {
+        (self.p, self.x, self.y, self.n)
     }
 }
 
@@ -63,7 +60,7 @@ impl fmt::Display for Cmd {
         write!(
             f,
             "Cmd(0x{:X?}{:X?}{:X?}{:X?})",
-            self.0, self.1, self.2, self.3
+            self.p, self.x, self.y, self.n
         )
     }
 }
@@ -234,42 +231,42 @@ impl Chip {
         log::trace!("reg({:?})", self.v);
         log::trace!("keys({:#016b})", self.keys);
         self.pc += 2;
-        match cmd {
-            Cmd(0x0, 0x0, 0xE, 0x0) => self.disp_clean(),
-            Cmd(0x0, 0x0, 0xE, 0xE) => self.sub_return(),
-            Cmd(0x1, _, _, _) => self.goto(&cmd),
-            Cmd(0x2, _, _, _) => self.sub_call(&cmd),
-            Cmd(0x3, _, _, _) => self.skip_eq_val(&cmd),
-            Cmd(0x4, _, _, _) => self.skip_neq_val(&cmd),
-            Cmd(0x5, _, _, 0x0) => self.skip_eq_reg(&cmd),
-            Cmd(0x6, _, _, _) => self.store_val(&cmd),
-            Cmd(0x7, _, _, _) => self.add_val(&cmd),
-            Cmd(0x8, _, _, 0x0) => self.store_reg(&cmd),
-            Cmd(0x8, _, _, 0x1) => self.or_reg(&cmd),
-            Cmd(0x8, _, _, 0x2) => self.and_reg(&cmd),
-            Cmd(0x8, _, _, 0x3) => self.xor_reg(&cmd),
-            Cmd(0x8, _, _, 0x4) => self.add_reg(&cmd),
-            Cmd(0x8, _, _, 0x5) => self.sub_reg(&cmd),
-            Cmd(0x8, _, _, 0x6) => self.shift_right_reg(&cmd),
-            Cmd(0x8, _, _, 0x7) => self.sub_reg_inv(&cmd),
-            Cmd(0x8, _, _, 0xE) => self.sub_reg_inv(&cmd),
-            Cmd(0x8, _, _, 0xF) => self.shift_left_reg(&cmd),
-            Cmd(0x9, _, _, 0x0) => self.skip_neq_reg(&cmd),
-            Cmd(0xA, _, _, _) => self.store_addr(&cmd),
-            Cmd(0xB, _, _, _) => self.goto_add(&cmd),
-            Cmd(0xC, _, _, _) => self.store_rand(&cmd),
-            Cmd(0xD, _, _, _) => self.draw_sprite(&cmd),
-            Cmd(0xE, _, 0x9, 0xE) => self.skip_key_pressed(&cmd),
-            Cmd(0xE, _, 0xA, 0x1) => self.skip_key_not_pressed(&cmd),
-            Cmd(0xF, _, 0x0, 0x7) => self.store_delay(&cmd),
-            Cmd(0xF, _, 0x0, 0xA) => self.wait_key_pressed(&cmd),
-            Cmd(0xF, _, 0x1, 0x5) => self.set_delay(&cmd),
-            Cmd(0xF, _, 0x1, 0x8) => self.set_sound(&cmd),
-            Cmd(0xF, _, 0x1, 0xE) => self.add_addr(&cmd),
-            Cmd(0xF, _, 0x2, 0x9) => self.set_sprite_addr(&cmd),
-            Cmd(0xF, _, 0x3, 0x3) => self.set_bcd(&cmd),
-            Cmd(0xF, _, 0x5, 0x5) => self.reg_dump(&cmd),
-            Cmd(0xF, _, 0x6, 0x5) => self.reg_load(&cmd),
+        match cmd.explode() {
+            (0x0, 0x0, 0xE, 0x0) => self.disp_clean(),
+            (0x0, 0x0, 0xE, 0xE) => self.sub_return(),
+            (0x1, _, _, _) => self.goto(&cmd),
+            (0x2, _, _, _) => self.sub_call(&cmd),
+            (0x3, _, _, _) => self.skip_eq_val(&cmd),
+            (0x4, _, _, _) => self.skip_neq_val(&cmd),
+            (0x5, _, _, 0x0) => self.skip_eq_reg(&cmd),
+            (0x6, _, _, _) => self.store_val(&cmd),
+            (0x7, _, _, _) => self.add_val(&cmd),
+            (0x8, _, _, 0x0) => self.store_reg(&cmd),
+            (0x8, _, _, 0x1) => self.or_reg(&cmd),
+            (0x8, _, _, 0x2) => self.and_reg(&cmd),
+            (0x8, _, _, 0x3) => self.xor_reg(&cmd),
+            (0x8, _, _, 0x4) => self.add_reg(&cmd),
+            (0x8, _, _, 0x5) => self.sub_reg(&cmd),
+            (0x8, _, _, 0x6) => self.shift_right_reg(&cmd),
+            (0x8, _, _, 0x7) => self.sub_reg_inv(&cmd),
+            (0x8, _, _, 0xE) => self.sub_reg_inv(&cmd),
+            (0x8, _, _, 0xF) => self.shift_left_reg(&cmd),
+            (0x9, _, _, 0x0) => self.skip_neq_reg(&cmd),
+            (0xA, _, _, _) => self.store_addr(&cmd),
+            (0xB, _, _, _) => self.goto_add(&cmd),
+            (0xC, _, _, _) => self.store_rand(&cmd),
+            (0xD, _, _, _) => self.draw_sprite(&cmd),
+            (0xE, _, 0x9, 0xE) => self.skip_key_pressed(&cmd),
+            (0xE, _, 0xA, 0x1) => self.skip_key_not_pressed(&cmd),
+            (0xF, _, 0x0, 0x7) => self.store_delay(&cmd),
+            (0xF, _, 0x0, 0xA) => self.wait_key_pressed(&cmd),
+            (0xF, _, 0x1, 0x5) => self.set_delay(&cmd),
+            (0xF, _, 0x1, 0x8) => self.set_sound(&cmd),
+            (0xF, _, 0x1, 0xE) => self.add_addr(&cmd),
+            (0xF, _, 0x2, 0x9) => self.set_sprite_addr(&cmd),
+            (0xF, _, 0x3, 0x3) => self.set_bcd(&cmd),
+            (0xF, _, 0x5, 0x5) => self.reg_dump(&cmd),
+            (0xF, _, 0x6, 0x5) => self.reg_load(&cmd),
             _ => log::warn!("unknown command {}", cmd),
         }
     }
@@ -286,35 +283,35 @@ impl Chip {
 
     fn goto(&mut self, cmd: &Cmd) {
         log::trace!("goto");
-        self.pc = cmd.nnn();
+        self.pc = cmd.nnn;
     }
 
     fn sub_call(&mut self, cmd: &Cmd) {
         log::trace!("sub_call");
         self.stack.push(self.pc);
-        self.pc = cmd.nnn();
+        self.pc = cmd.nnn;
     }
 
     fn skip_eq_val(&mut self, cmd: &Cmd) {
         log::trace!("skip_eq_val");
-        let r = self.v[cmd.x() as usize];
-        if r == cmd.nn() {
+        let r = self.v[cmd.x as usize];
+        if r == cmd.nn {
             self.pc += 2;
         }
     }
 
     fn skip_neq_val(&mut self, cmd: &Cmd) {
         log::trace!("skip_neq_val");
-        let r = self.v[cmd.x() as usize];
-        if r != cmd.nn() {
+        let r = self.v[cmd.x as usize];
+        if r != cmd.nn {
             self.pc += 2;
         }
     }
 
     fn skip_eq_reg(&mut self, cmd: &Cmd) {
         log::trace!("skip_eq_reg");
-        let r1 = self.v[cmd.x() as usize];
-        let r2 = self.v[cmd.y() as usize];
+        let r1 = self.v[cmd.x as usize];
+        let r2 = self.v[cmd.y as usize];
         if r1 == r2 {
             self.pc += 2;
         }
@@ -322,8 +319,8 @@ impl Chip {
 
     fn skip_neq_reg(&mut self, cmd: &Cmd) {
         log::trace!("skip_neq_reg");
-        let r1 = self.v[cmd.x() as usize];
-        let r2 = self.v[cmd.y() as usize];
+        let r1 = self.v[cmd.x as usize];
+        let r2 = self.v[cmd.y as usize];
         if r1 != r2 {
             self.pc += 2;
         }
@@ -331,97 +328,97 @@ impl Chip {
 
     fn store_val(&mut self, cmd: &Cmd) {
         log::trace!("store_val");
-        self.v[cmd.x() as usize] = cmd.nn();
+        self.v[cmd.x as usize] = cmd.nn;
     }
 
     fn add_val(&mut self, cmd: &Cmd) {
         log::trace!("add_val");
-        self.v[cmd.x() as usize] = self.v[cmd.x() as usize].wrapping_add(cmd.nn());
+        self.v[cmd.x as usize] = self.v[cmd.x as usize].wrapping_add(cmd.nn);
     }
 
     fn store_reg(&mut self, cmd: &Cmd) {
         log::trace!("store_reg");
-        self.v[cmd.x() as usize] = self.v[cmd.y() as usize];
+        self.v[cmd.x as usize] = self.v[cmd.y as usize];
     }
 
     fn or_reg(&mut self, cmd: &Cmd) {
         log::trace!("or_reg");
-        self.v[cmd.x() as usize] |= self.v[cmd.y() as usize];
+        self.v[cmd.x as usize] |= self.v[cmd.y as usize];
     }
 
     fn and_reg(&mut self, cmd: &Cmd) {
         log::trace!("and_reg");
-        self.v[cmd.x() as usize] &= self.v[cmd.y() as usize];
+        self.v[cmd.x as usize] &= self.v[cmd.y as usize];
     }
 
     fn xor_reg(&mut self, cmd: &Cmd) {
         log::trace!("xor_reg");
-        self.v[cmd.x() as usize] ^= self.v[cmd.y() as usize];
+        self.v[cmd.x as usize] ^= self.v[cmd.y as usize];
     }
 
     fn add_reg(&mut self, cmd: &Cmd) {
         log::trace!("add_reg");
-        let (res, overflow) = self.v[cmd.x() as usize].overflowing_add(self.v[cmd.y() as usize]);
-        self.v[cmd.x() as usize] = res;
+        let (res, overflow) = self.v[cmd.x as usize].overflowing_add(self.v[cmd.y as usize]);
+        self.v[cmd.x as usize] = res;
         self.v[CARRY] = overflow as u8;
     }
 
     fn sub_reg(&mut self, cmd: &Cmd) {
         log::trace!("sub_reg");
-        let (res, overflow) = self.v[cmd.x() as usize].overflowing_sub(self.v[cmd.y() as usize]);
-        self.v[cmd.x() as usize] = res;
+        let (res, overflow) = self.v[cmd.x as usize].overflowing_sub(self.v[cmd.y as usize]);
+        self.v[cmd.x as usize] = res;
         self.v[CARRY] = !overflow as u8;
     }
 
     fn shift_right_reg(&mut self, cmd: &Cmd) {
         log::trace!("shift_right_reg");
-        let r = self.v[cmd.x() as usize];
+        let r = self.v[cmd.x as usize];
         self.v[CARRY] = r & 0x1;
-        self.v[cmd.x() as usize] = r >> 1;
+        self.v[cmd.x as usize] = r >> 1;
     }
 
     fn sub_reg_inv(&mut self, cmd: &Cmd) {
         log::trace!("sub_reg_inv");
-        let (res, overflow) = self.v[cmd.y() as usize].overflowing_sub(self.v[cmd.x() as usize]);
-        self.v[cmd.x() as usize] = res;
+        let (res, overflow) = self.v[cmd.y as usize].overflowing_sub(self.v[cmd.x as usize]);
+        self.v[cmd.x as usize] = res;
         self.v[CARRY] = !overflow as u8;
     }
 
     fn shift_left_reg(&mut self, cmd: &Cmd) {
         log::trace!("shift_left_reg");
-        let r = self.v[cmd.x() as usize];
+        let r = self.v[cmd.x as usize];
         self.v[CARRY] = r & 0x80;
-        self.v[cmd.x() as usize] = r << 1;
+        self.v[cmd.x as usize] = r << 1;
     }
 
     fn store_addr(&mut self, cmd: &Cmd) {
         log::trace!("store_addr");
-        self.i = cmd.nnn();
+        self.i = cmd.nnn;
     }
 
     fn goto_add(&mut self, cmd: &Cmd) {
         log::trace!("goto_add");
-        self.pc = (self.v[0] as u16) + cmd.nnn();
+        self.pc = (self.v[0] as u16) + cmd.nnn;
     }
 
     fn store_rand(&mut self, cmd: &Cmd) {
         log::trace!("store_rand");
-        self.v[cmd.x() as usize] = random::<u8>() & cmd.nn();
+        self.v[cmd.x as usize] = random::<u8>() & cmd.nn;
     }
 
     fn draw_sprite(&mut self, cmd: &Cmd) {
         log::trace!("draw_sprite");
         let l = self.i as usize;
-        let sprite = &self.mem[l..(l + (cmd.n() as usize))];
-        let x = self.v[cmd.x() as usize];
-        let y = self.v[cmd.y() as usize];
+        let sprite = &self.mem[l..(l + (cmd.n as usize))];
+        let x = self.v[cmd.x as usize];
+        let y = self.v[cmd.y as usize];
         let changed = self.screen.draw_sprite(x as usize, y as usize, sprite);
         self.v[CARRY] = changed as u8;
     }
 
     fn skip_key_pressed(&mut self, cmd: &Cmd) {
         log::trace!("skip_key_pressed");
-        let r = self.v[cmd.x() as usize];
+        let r = self.v[cmd.x as usize];
         if self.get_key(r) {
             self.pc += 2;
         }
@@ -429,7 +426,7 @@ impl Chip {
 
     fn skip_key_not_pressed(&mut self, cmd: &Cmd) {
         log::trace!("skip_key_not_pressed");
-        let r = self.v[cmd.x() as usize];
+        let r = self.v[cmd.x as usize];
         if !self.get_key(r) {
             self.pc += 2;
         }
@@ -437,44 +434,44 @@ impl Chip {
 
     fn store_delay(&mut self, cmd: &Cmd) {
         log::trace!("store_delay");
-        self.v[cmd.x() as usize] = self.delay;
+        self.v[cmd.x as usize] = self.delay;
     }
 
     fn wait_key_pressed(&mut self, cmd: &Cmd) {
         log::trace!("wait_key_pressed");
         self.waiting_for_key = true;
         if let Some(k) = (0..16).filter(|k| self.get_key(*k)).nth(0) {
-            self.v[cmd.x() as usize] = k;
+            self.v[cmd.x as usize] = k;
             self.waiting_for_key = false;
         }
     }
 
     fn set_delay(&mut self, cmd: &Cmd) {
         log::trace!("set_delay");
-        self.delay = self.v[cmd.x() as usize];
+        self.delay = self.v[cmd.x as usize];
     }
 
     fn set_sound(&mut self, cmd: &Cmd) {
         log::trace!("set_sound");
-        self.sound = self.v[cmd.x() as usize];
+        self.sound = self.v[cmd.x as usize];
     }
 
     fn add_addr(&mut self, cmd: &Cmd) {
         log::trace!("add_addr");
-        let (res, overflow) = self.i.overflowing_add(self.v[cmd.x() as usize] as u16);
+        let (res, overflow) = self.i.overflowing_add(self.v[cmd.x as usize] as u16);
         self.i = res;
         self.v[CARRY] = overflow as u8;
     }
 
     fn set_sprite_addr(&mut self, cmd: &Cmd) {
         log::trace!("set_sprite_addr");
-        self.i = (self.v[cmd.x() as usize] as u16) * 5;
+        self.i = (self.v[cmd.x as usize] as u16) * 5;
     }
 
     fn set_bcd(&mut self, cmd: &Cmd) {
         log::trace!("set_bcd");
         let l = self.i as usize;
-        let val = self.v[cmd.x() as usize];
+        let val = self.v[cmd.x as usize];
         self.mem[l] = val / 100;
         self.mem[l + 1] = (val / 10) % 10;
         self.mem[l + 2] = val % 10;
@@ -483,7 +480,7 @@ impl Chip {
     fn reg_dump(&mut self, cmd: &Cmd) {
         log::trace!("reg_dump");
         let l = self.i as usize;
-        let x = (cmd.x() + 1) as usize;
+        let x = (cmd.x + 1) as usize;
         self.mem[l..(l + x)].copy_from_slice(&self.v[0..x]);
         self.i += x as u16;
     }
@@ -491,7 +488,7 @@ impl Chip {
     fn reg_load(&mut self, cmd: &Cmd) {
         log::trace!("reg_load");
         let l = self.i as usize;
-        let x = (cmd.x() + 1) as usize;
+        let x = (cmd.x + 1) as usize;
         self.v[0..x].copy_from_slice(&self.mem[l..(l + x)]);
         self.i += x as u16;
     }
